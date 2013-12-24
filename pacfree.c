@@ -47,6 +47,7 @@ int cmp_count(const void *data1, const void *data2)
 	license_t *l1, *l2;
 	l1 = (license_t *) data1;
 	l2 = (license_t *) data2;
+
 	return (l2->count - l1->count);
 }
 
@@ -55,10 +56,8 @@ alpm_list_t *sort_list(alpm_list_t *list)
 	alpm_list_t *list_copy = NULL;
 	alpm_list_t *l;
 
-	for (l = list; l; l = l->next) {
-		list_copy =
-		    alpm_list_add_sorted(list_copy, l->data, cmp_count);
-	}
+	for (l = list; l; l = l->next)
+		list_copy = alpm_list_add_sorted(list_copy, l->data, cmp_count);
 
 	/* we get rid of the list, but we keep the data */
 	alpm_list_free(list);
@@ -93,17 +92,12 @@ int main()
 
 		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
 
-			if (!
-			    (res =
-			     license_in_list(licenses,
-					     (char *) l->data))) {
-				license_t *license =
-				    calloc(1, sizeof(license_t));
+			if (!(res = license_in_list(licenses, (char *) l->data))) {
+				license_t *license = calloc(1, sizeof(license_t));
 				license->name = l->data;
 				license->count = 1;
 
-				licenses =
-				    alpm_list_add(licenses, license);
+				licenses = alpm_list_add(licenses, license);
 			} else {
 				((license_t *) res)->count += 1;
 			}
