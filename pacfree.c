@@ -10,24 +10,26 @@ typedef struct {
 	int count;
 } license_t;
 
-void print_license_list(alpm_list_t *licenses)
+void print_license_list(alpm_list_t *licenses, int counter)
 {
 	alpm_list_t *l;
 	license_t *license;
 
 	for (l = licenses; l; l = l->next) {
 		license = (license_t *) l->data;
-		printf("%s %d\n", license->name, license->count);
+		printf("%3d (%05.2f%%) %s \n", license->count, 
+			(double)license->count*100/counter, license->name);
 	}
 }
 
 void free_list(alpm_list_t *list)
 {
+	/* free list and data */
 	alpm_list_free_inner(list, free);
 	alpm_list_free(list);
 }
 
-void *license_in_list(alpm_list_t *licenses, char *name)
+void *find_license_in_list(alpm_list_t *licenses, char *name)
 {
 	alpm_list_t *l;
 	license_t *license;
@@ -92,7 +94,7 @@ int main()
 
 		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
 
-			if (!(res = license_in_list(licenses, (char *) l->data))) {
+			if (!(res = find_license_in_list(licenses, (char *) l->data))) {
 				license_t *license = calloc(1, sizeof(license_t));
 				license->name = l->data;
 				license->count = 1;
@@ -106,8 +108,7 @@ int main()
 	}
 
 	licenses = sort_list(licenses);
-
-	print_license_list(licenses);
+	print_license_list(licenses, counter);
 
 	free_list(licenses);
 	alpm_release(handle);
