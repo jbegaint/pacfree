@@ -46,11 +46,25 @@ void *find_license_in_list(alpm_list_t *licenses, char *name)
 
 int cmp_count(const void *data1, const void *data2)
 {
-	license_t *l1, *l2;
-	l1 = (license_t *) data1;
-	l2 = (license_t *) data2;
+	/* cast date and return diff */
+	return (((license_t *) data2)->count - ((license_t *) data1)->count);
+}
 
-	return (l2->count - l1->count);
+void process_license(alpm_list_t **licenses, char *name)
+{
+	void *res;
+
+	if ((res = find_license_in_list(*licenses, name))) {
+		/* increment counter */
+		((license_t *) res)->count += 1;
+	} else {
+		/* add license to list */
+		license_t *license = calloc(1, sizeof(license_t));
+
+		license->name = name;
+		license->count = 1;
+		*licenses = alpm_list_add(*licenses, license);
+	}
 }
 
 alpm_list_t *sort_list(alpm_list_t *list)
@@ -79,7 +93,6 @@ int main()
 	alpm_list_t *i, *l;
 
 	alpm_errno_t err;
-	void *res;
 	int counter = 0;
 
 	handle = alpm_initialize(root, dbpath, &err);
@@ -92,18 +105,9 @@ int main()
 	for (i = alpm_db_get_pkgcache(db); i; i = alpm_list_next(i)) {
 		alpm_pkg_t *pkg = i->data;
 
-		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
+		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next)
+			process_license(&licenses, (char*) l->data);
 
-			if (!(res = find_license_in_list(licenses, (char *) l->data))) {
-				license_t *license = calloc(1, sizeof(license_t));
-				license->name = l->data;
-				license->count = 1;
-
-				licenses = alpm_list_add(licenses, license);
-			} else {
-				((license_t *) res)->count += 1;
-			}
-		}
 		counter++;
 	}
 
