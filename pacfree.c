@@ -7,7 +7,7 @@
 #include <alpm_list.h>
 
 typedef struct {
-	char *name;
+	const char *name;
 	int count;
 } license_t;
 
@@ -126,7 +126,7 @@ static alpm_list_t *sort_list(alpm_list_t *list)
 
 static void usage(char **argv)
 {
-	die("usage: %s [-a/v]\n", argv[0]);
+	die("usage: %s [-a] [-l license] [-v]\n", argv[0]);
 }
 
 int main(int argc, char **argv)
@@ -143,11 +143,16 @@ int main(int argc, char **argv)
 	alpm_errno_t err;
 	int counter = 0;
 
+	int find_by_license_flag = 0;
+
 	if ((argc == 2) && !strcmp("-a", argv[1]))
 		limit_output = 0;
 
 	else if ((argc == 2) && !strcmp("-v", argv[1]))
 		die("%s © 2013\n", "pacfree");
+
+	else if ((argc == 3) && !strcmp("-l", argv[1]))
+		find_by_license_flag = 1;
 
 	else if (argc != 1)
 		usage(argv);
@@ -164,13 +169,36 @@ int main(int argc, char **argv)
 
 		/* packages can have multiple licenses */
 		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
-			process_license(&licenses, (char*) l->data);
-			counter++;
+			
+			if (!find_by_license_flag) {
+				process_license(&licenses, (char*) l->data);
+				counter++;
+			} else {
+				if (!strcmp((char*) l->data, argv[2])) {
+					/* hulgy hack, we should not reused this structure */
+					license_t *license = calloc(1, sizeof(license_t));
+					license->name = alpm_pkg_get_name(pkg);
+					licenses = alpm_list_add(licenses, license);
+					counter++;
+				}
+			}
 		}
 	}
 
 	licenses = sort_list(licenses);
-	print_license_list(licenses, counter);
+
+	if (!find_by_license_flag) {
+		print_license_list(licenses, counter);
+	} else {
+		if (counter > 0) {
+		printf("Found %d packages with license \"%s\":\n", counter, argv[2]);
+			for (l = licenses; l; l = l->next) {
+				printf("%s\n", ((license_t*) l->data)->name);
+			}
+		} else {
+			printf("No packages found with license \"%s\"\n", argv[2]);
+		}
+	}
 
 	free_list(licenses);
 	alpm_release(handle);
