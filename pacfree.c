@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,26 +11,67 @@ typedef struct {
 	int count;
 } license_t;
 
-void print_license_list(alpm_list_t *licenses, int counter)
+static int limit_output = 1;
+
+char *GPL_LICENSES[20] = {
+	"GPL", 
+	"GPL2", 
+	"GPLv2",
+	"GPL3", 
+	"GPLv3",
+	"LGPL", 
+	"LGPL2", 
+	"LGPL2.1",
+	"LGPL3", 
+	"AGPL", 
+	NULL
+};
+
+static void die(char *err, ...)
+{
+	va_list e;
+
+	va_start(e, err);
+	vfprintf(stderr, err, e);
+	va_end(e);
+
+	exit(EXIT_FAILURE);
+}
+
+static void print_license_list(alpm_list_t *licenses, int counter)
 {
 	alpm_list_t *l;
 	license_t *license;
+	int i = 0;
+	int sum = 0;
 
 	for (l = licenses; l; l = l->next) {
 		license = (license_t *) l->data;
-		printf("%3d (%05.2f%%) %s \n", license->count, 
-			(double)license->count*100/counter, license->name);
+
+		printf("+%-8s \n  %05.2f%% (%d/%d)\n", license->name, 
+			((double)license->count*100)/counter, license->count, counter);
+
+		/* let's display only the 5 most used license */
+		if (limit_output && (i == 4))
+			break;
+
+		sum += license->count;
+		i++;
 	}
+
+	if (limit_output)
+		printf("%-8s \n  %05.2f%%  (%d/%d)\n", "+other", 
+			((double)(counter-sum)*100)/counter, counter-sum, counter);
 }
 
-void free_list(alpm_list_t *list)
+static void free_list(alpm_list_t *list)
 {
 	/* free list and data */
 	alpm_list_free_inner(list, free);
 	alpm_list_free(list);
 }
 
-void *find_license_in_list(alpm_list_t *licenses, char *name)
+static void *find_license_in_list(alpm_list_t *licenses, char *name)
 {
 	alpm_list_t *l;
 	license_t *license;
@@ -37,20 +79,20 @@ void *find_license_in_list(alpm_list_t *licenses, char *name)
 	for (l = licenses; l; l = l->next) {
 		license = (license_t *) l->data;
 
-		if (strcmp(name, license->name) == 0)
+		if (!strcmp(name, license->name))
 			return license;
 	}
 
 	return NULL;
 }
 
-int cmp_count(const void *data1, const void *data2)
+static int cmp_count(const void *data1, const void *data2)
 {
 	/* cast date and return diff */
 	return (((license_t *) data2)->count - ((license_t *) data1)->count);
 }
 
-void process_license(alpm_list_t **licenses, char *name)
+static void process_license(alpm_list_t **licenses, char *name)
 {
 	void *res;
 
@@ -64,10 +106,11 @@ void process_license(alpm_list_t **licenses, char *name)
 		license->name = name;
 		license->count = 1;
 		*licenses = alpm_list_add(*licenses, license);
+
 	}
 }
 
-alpm_list_t *sort_list(alpm_list_t *list)
+static alpm_list_t *sort_list(alpm_list_t *list)
 {
 	alpm_list_t *list_copy = NULL;
 	alpm_list_t *l;
@@ -81,7 +124,12 @@ alpm_list_t *sort_list(alpm_list_t *list)
 	return list_copy;
 }
 
-int main()
+static void usage(char **argv)
+{
+	die("usage: %s [-a/v]\n", argv[0]);
+}
+
+int main(int argc, char **argv)
 {
 	const char *root = "/";
 	const char *dbpath = "/var/lib/pacman";
@@ -95,6 +143,15 @@ int main()
 	alpm_errno_t err;
 	int counter = 0;
 
+	if ((argc == 2) && !strcmp("-a", argv[1]))
+		limit_output = 0;
+
+	else if ((argc == 2) && !strcmp("-v", argv[1]))
+		die("%s © 2013\n", "pacfree");
+
+	else if (argc != 1)
+		usage(argv);
+
 	handle = alpm_initialize(root, dbpath, &err);
 
 	if (!handle)
@@ -105,10 +162,11 @@ int main()
 	for (i = alpm_db_get_pkgcache(db); i; i = alpm_list_next(i)) {
 		alpm_pkg_t *pkg = i->data;
 
-		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next)
+		/* packages can have multiple licenses */
+		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
 			process_license(&licenses, (char*) l->data);
-
-		counter++;
+			counter++;
+		}
 	}
 
 	licenses = sort_list(licenses);
