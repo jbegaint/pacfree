@@ -11,8 +11,10 @@ typedef struct {
 	int count;
 } license_t;
 
+/* temporary global variable */
 static int limit_output = 1;
 
+/* unused for now */
 char *GPL_LICENSES[20] = {
 	"GPL", 
 	"GPL2", 
@@ -48,7 +50,7 @@ static void print_license_list(alpm_list_t *licenses, int counter)
 	for (l = licenses; l; l = l->next) {
 		license = (license_t *) l->data;
 
-		printf("+%-8s \n  %05.2f%% (%d/%d)\n", license->name, 
+		printf("+%-8s \n  %05.2f%% (%d/%d)\n", license->name,
 			((double)license->count*100)/counter, license->count, counter);
 
 		/* let's display only the 5 most used license */
@@ -86,10 +88,9 @@ static void *find_license_in_list(alpm_list_t *licenses, char *name)
 	return NULL;
 }
 
-static int cmp_count(const void *data1, const void *data2)
-{
-	/* cast date and return diff */
-	return (((license_t *) data2)->count - ((license_t *) data1)->count);
+static int cmp_count(const void *data1, const void *data2) {     
+	/* cast data and return diff */     
+	return (((license_t *) data2)->count - ((license_t *) data1)->count); 
 }
 
 static void process_license(alpm_list_t **licenses, char *name)
@@ -189,12 +190,15 @@ int main(int argc, char **argv)
 
 	if (!find_by_license_flag) {
 		print_license_list(licenses, counter);
+
 	} else {
 		if (counter > 0) {
-		printf("Found %d packages with license \"%s\":\n", counter, argv[2]);
-			for (l = licenses; l; l = l->next) {
+			printf("Found %d package%s with license \"%s\":\n", counter, 
+				(counter > 1) ? "s" : "", argv[2]);
+
+			for (l = licenses; l; l = l->next)
 				printf("%s\n", ((license_t*) l->data)->name);
-			}
+		
 		} else {
 			printf("No packages found with license \"%s\"\n", argv[2]);
 		}
