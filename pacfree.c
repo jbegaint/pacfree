@@ -5,7 +5,7 @@
 
 #include <alpm.h>
 #include <alpm_list.h>
-	
+
 #define ROOT "/"
 #define PATH "/var/lib/pacman"
 
@@ -140,7 +140,7 @@ alpm_db_t* init_db(alpm_handle_t **handle)
 	return db;
 }
 
-static void get_licenses(alpm_handle_t **handle, char limit_output)
+static void get_licenses_and_count(alpm_handle_t **handle, char limit_output)
 {
 	alpm_db_t *db;
 	alpm_list_t *i, *l;
@@ -166,6 +166,34 @@ static void get_licenses(alpm_handle_t **handle, char limit_output)
 	free_list(licenses);
 }
 
+static void get_licenses_list(alpm_handle_t **handle)
+{
+	alpm_db_t *db;
+	alpm_list_t *i, *l;
+	alpm_pkg_t *pkg;
+	alpm_list_t *licenses = NULL;
+	int counter = 0;
+
+	db = init_db(handle);
+
+	for (i = alpm_db_get_pkgcache(db); i; i = i->next) {
+		pkg = (alpm_pkg_t*) i->data;
+		
+		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
+			if (!alpm_list_find_str(licenses, l->data)) {
+				licenses = alpm_list_add(licenses, l->data);
+				counter++;
+			}
+		}
+	}
+
+	printf("%d licenses found:\n", counter);
+	for (l = licenses; l; l = l->next)
+		printf("%s\n", (char*) l->data);
+
+	alpm_list_free(licenses);
+}
+
 static void get_pkgs_by_license(alpm_handle_t **handle, char *name)
 {
 	alpm_db_t *db;
@@ -179,7 +207,7 @@ static void get_pkgs_by_license(alpm_handle_t **handle, char *name)
 
 	for (i = alpm_db_get_pkgcache(db); i; i = i->next) {
 		pkg = (alpm_pkg_t*) i->data;
-
+		
 		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
 			if (!strcmp((char*) l->data, name)) {
 				pkg_name = alpm_pkg_get_name(pkg);
@@ -195,8 +223,8 @@ static void get_pkgs_by_license(alpm_handle_t **handle, char *name)
 
 		for (l = pkgs; l; l = l->next)
 			printf("%s\n", (char*) l->data);
-	
-	} else {
+	}
+	else {
 		printf("No packages found with license \"%s\"\n", name);
 	}
 
@@ -205,7 +233,7 @@ static void get_pkgs_by_license(alpm_handle_t **handle, char *name)
 
 static void usage(char **argv)
 {
-	die("usage: %s [-a] [-l license] [-v]\n", argv[0]);
+	die("usage: %s [-a] [-l license/ list] [-v]\n", argv[0]);
 }
 
 int main(int argc, char **argv)
@@ -216,7 +244,11 @@ int main(int argc, char **argv)
 		die("%s ©2013 jeanbroid\n", "pacfree");
 	}
 	else if ((argc == 2) && !strcmp("-a", argv[1])) {
-		get_licenses(&handle, 0);
+		get_licenses_and_count(&handle, 0);
+	}
+	else if ((argc == 3) && !strcmp("-l", argv[1]) 
+		&& !strcmp("list", argv[2])) {
+ 		get_licenses_list(&handle);
 	}
 	else if ((argc == 3) && !strcmp("-l", argv[1])) {
  		get_pkgs_by_license(&handle, argv[2]);
@@ -225,7 +257,7 @@ int main(int argc, char **argv)
 		usage(argv);
 	}
 	else {
-		get_licenses(&handle, 1);
+		get_licenses_and_count(&handle, 1);
 	}
 
 	alpm_release(handle);
