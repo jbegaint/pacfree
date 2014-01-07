@@ -12,10 +12,10 @@
 typedef struct {
 	const char *name;
 	int count;
+	alpm_list_t *pkgs;
 } license_t;
 
-/* unused for now */
-char *GPL_LICENSES[20] = {
+char *OPEN_SOURCE_LICENSES[20] = {
 	"GPL", 
 	"GPL2", 
 	"GPLv2",
@@ -26,6 +26,7 @@ char *GPL_LICENSES[20] = {
 	"LGPL2.1",
 	"LGPL3", 
 	"AGPL", 
+	"MIT",
 	NULL
 };
 
@@ -38,6 +39,16 @@ static void die(char *err, ...)
 	va_end(e);
 
 	exit(EXIT_FAILURE);
+}
+
+static int is_license_libre(const char* license)
+{
+	int i;
+	for (i = 0; OPEN_SOURCE_LICENSES[i]; i++) {
+		if (!strcmp(license, OPEN_SOURCE_LICENSES[i]))
+			return 1;
+	}
+	return 0;
 }
 
 static void print_licenses_list(alpm_list_t *licenses, int counter, 
@@ -145,23 +156,35 @@ static void get_licenses_and_count(alpm_handle_t **handle, char limit_output)
 	alpm_db_t *db;
 	alpm_list_t *i, *l;
 	alpm_list_t *licenses = NULL;
+
 	int counter = 0;
+	int free_counter = 0;
+	int pkgs_counter = 0;
 
 	db = init_db(handle);
 
 	for (i = alpm_db_get_pkgcache(db); i; i = i->next) {
 		alpm_pkg_t *pkg = i->data;
 
-		/* packages can have multiple licenses */
-		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
+		l = alpm_pkg_get_licenses(pkg);
+		if (is_license_libre((char*) l->data))
+			free_counter++;
+
+		/* iterate over multiple licenses */
+		while(l) {
 			/* add license to list or increment license counter */
 			process_license(&licenses, (char*) l->data);
 			counter++;
+			l = l->next;
 		}
+		
+		pkgs_counter++;
 	}
 
 	licenses = sort_list(licenses);
 	print_licenses_list(licenses, counter, limit_output);
+	printf("Free counter: %.2f%% (%d/%d)\n", (double)free_counter*100/pkgs_counter,
+		free_counter, pkgs_counter);
 
 	free_list(licenses);
 }
@@ -225,15 +248,15 @@ static void get_pkgs_by_license(alpm_handle_t **handle, char *name)
 			printf("%s\n", (char*) l->data);
 	}
 	else {
-		printf("No packages found with license \"%s\"\n", name);
+		printf("No package found with license \"%s\"\n", name);
 	}
 
 	alpm_list_free(pkgs);
 }
 
-static void usage(char **argv)
+static void usage(char *str)
 {
-	die("usage: %s [-a] [-l license/ list] [-v]\n", argv[0]);
+	die("usage: %s [-a] [-l license/ list] [-v]\n", str);
 }
 
 int main(int argc, char **argv)
@@ -241,7 +264,7 @@ int main(int argc, char **argv)
 	static alpm_handle_t *handle;
 
 	if ((argc == 2) && !strcmp("-v", argv[1])) {
-		die("%s ©2013 jeanbroid\n", "pacfree");
+		die("%s © 2013 jeanbroid\n", "pacfree");
 	}
 	else if ((argc == 2) && !strcmp("-a", argv[1])) {
 		get_licenses_and_count(&handle, 0);
@@ -254,7 +277,7 @@ int main(int argc, char **argv)
  		get_pkgs_by_license(&handle, argv[2]);
 	}
 	else if (argc != 1) {
-		usage(argv);
+		usage(argv[0]);
 	}
 	else {
 		get_licenses_and_count(&handle, 1);
