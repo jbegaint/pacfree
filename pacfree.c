@@ -20,6 +20,7 @@ typedef struct {
 	alpm_list_t *pkgs;
 } license_t;
 
+/* non exhaustive */
 char *OPEN_SOURCE_LICENSES[20] = {
 	"GPL", 
 	"GPL2", 
@@ -49,10 +50,11 @@ static void die(char *err, ...)
 static int is_license_open(license_t* license)
 {
 	int i;
-	for (i = 0; OPEN_SOURCE_LICENSES[i]; i++) {
+
+	for (i = 0; OPEN_SOURCE_LICENSES[i]; i++)
 		if (!strcmp(license->name, OPEN_SOURCE_LICENSES[i]))
 			return 1;
-	}
+			
 	return 0;
 }
 
@@ -84,10 +86,8 @@ static void print_pkgs_by_license(alpm_list_t *licenses, char* name)
 
 	printf("%d package%s installed with license: \"%s\":\n", license->count, (license->count) > 0 ? "s" : "", name);
 
-	for (p = license->pkgs; p; p = p->next) {
+	for (p = license->pkgs; p; p = p->next)
 		printf("%s\n", (char *) p->data);
-	}
-
 }
 
 static void print_list(alpm_list_t *licenses)
