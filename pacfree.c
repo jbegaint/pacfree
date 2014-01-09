@@ -9,6 +9,12 @@
 #define ROOT "/"
 #define PATH "/var/lib/pacman"
 
+static int licenses_counter = 0;
+static int pkgs_counter = 0;
+static int free_counter = 0;
+
+static int limit_output = 1;
+
 typedef struct {
 	const char *name;
 	int count;
@@ -51,8 +57,7 @@ static int is_license_libre(const char* license)
 	return 0;
 }
 
-static void print_licenses_list(alpm_list_t *licenses, int counter, 
-	char limit_output)
+static void print_licenses_list(alpm_list_t *licenses)
 {
 	alpm_list_t *l;
 	license_t *license;
@@ -63,7 +68,7 @@ static void print_licenses_list(alpm_list_t *licenses, int counter,
 		license = (license_t *) l->data;
 
 		printf("+%-8s \n  %05.2f%% (%d/%d)\n", license->name,
-			((double)license->count*100)/counter, license->count, counter);
+			((double)license->count*100)/licenses_counter, license->count, licenses_counter);
 
 		/* let's display only the 5 most used license */
 		if (limit_output && (i == 4))
@@ -75,17 +80,23 @@ static void print_licenses_list(alpm_list_t *licenses, int counter,
 
 	if (limit_output)
 		printf("%-8s \n  %05.2f%%  (%d/%d)\n", "+other", 
-			((double)(counter-sum)*100)/counter, counter-sum, counter);
+			((double)(licenses_counter-sum)*100)/licenses_counter, licenses_counter-sum, licenses_counter);
 }
 
-static void free_list(alpm_list_t *list)
+static void free_licenses_list(alpm_list_t *list)
 {
+	alpm_list_t *l;
+
+	/* free pkgs list fotr each license in list */
+	for (l = list; l; l = l->next)
+		alpm_list_free(((license_t *) l->data)->pkgs);
+
 	/* free list and data */
 	alpm_list_free_inner(list, free);
 	alpm_list_free(list);
 }
 
-static void *get_license_in_list(alpm_list_t *licenses, char *name)
+static license_t *get_license_in_list(alpm_list_t *licenses, char *name)
 {
 	alpm_list_t *l;
 	license_t *license;
@@ -105,14 +116,18 @@ static int cmp_count(const void *data1, const void *data2) {
 	return (((license_t *) data2)->count - ((license_t *) data1)->count); 
 }
 
-static void process_license(alpm_list_t **licenses, char *name)
+static void process_license(alpm_list_t **licenses, char *name, alpm_pkg_t *pkg)
 {
-	void *res;
+	license_t *res;
+	const char *pkgname;
 
 	if ((res = get_license_in_list(*licenses, name))) {
-		/* increment counter */
-		((license_t *) res)->count += 1;
-	} else {
+		pkgname = alpm_pkg_get_name(pkg);
+
+		res->count += 1;
+		res->pkgs = alpm_list_add(res->pkgs, (void*) pkgname);
+	} 
+	else {
 		/* add license to list */
 		license_t *license = calloc(1, sizeof(license_t));
 
@@ -136,9 +151,8 @@ static alpm_list_t *sort_list(alpm_list_t *list)
 	return sorted_list;
 }
 
-alpm_db_t* init_db(alpm_handle_t **handle)
+static void init_db(alpm_handle_t **handle, alpm_db_t **db)
 {
-	alpm_db_t *db;
 	alpm_errno_t err;
 
 	*handle = alpm_initialize(ROOT, PATH, &err);
@@ -146,112 +160,7 @@ alpm_db_t* init_db(alpm_handle_t **handle)
 	if (!*handle)
 		die("Error: %s", alpm_strerror(err));
 
-	db = alpm_get_localdb(*handle);
-
-	return db;
-}
-
-static void get_licenses_and_count(alpm_handle_t **handle, char limit_output)
-{
-	alpm_db_t *db;
-	alpm_list_t *i, *l;
-	alpm_list_t *licenses = NULL;
-
-	int counter = 0;
-	int free_counter = 0;
-	int pkgs_counter = 0;
-
-	db = init_db(handle);
-
-	for (i = alpm_db_get_pkgcache(db); i; i = i->next) {
-		alpm_pkg_t *pkg = i->data;
-
-		l = alpm_pkg_get_licenses(pkg);
-		if (is_license_libre((char*) l->data))
-			free_counter++;
-
-		/* iterate over multiple licenses */
-		while(l) {
-			/* add license to list or increment license counter */
-			process_license(&licenses, (char*) l->data);
-			counter++;
-			l = l->next;
-		}
-		
-		pkgs_counter++;
-	}
-
-	licenses = sort_list(licenses);
-	print_licenses_list(licenses, counter, limit_output);
-	printf("Free counter: %.2f%% (%d/%d)\n", (double)free_counter*100/pkgs_counter,
-		free_counter, pkgs_counter);
-
-	free_list(licenses);
-}
-
-static void get_licenses_list(alpm_handle_t **handle)
-{
-	alpm_db_t *db;
-	alpm_list_t *i, *l;
-	alpm_pkg_t *pkg;
-	alpm_list_t *licenses = NULL;
-	int counter = 0;
-
-	db = init_db(handle);
-
-	for (i = alpm_db_get_pkgcache(db); i; i = i->next) {
-		pkg = (alpm_pkg_t*) i->data;
-		
-		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
-			if (!alpm_list_find_str(licenses, l->data)) {
-				licenses = alpm_list_add(licenses, l->data);
-				counter++;
-			}
-		}
-	}
-
-	printf("%d licenses found:\n", counter);
-	for (l = licenses; l; l = l->next)
-		printf("%s\n", (char*) l->data);
-
-	alpm_list_free(licenses);
-}
-
-static void get_pkgs_by_license(alpm_handle_t **handle, char *name)
-{
-	alpm_db_t *db;
-	alpm_list_t *i, *l;
-	alpm_pkg_t *pkg;
-	const char *pkg_name;
-	alpm_list_t *pkgs = NULL;
-	int counter = 0;
-
-	db = init_db(handle);
-
-	for (i = alpm_db_get_pkgcache(db); i; i = i->next) {
-		pkg = (alpm_pkg_t*) i->data;
-		
-		for (l = alpm_pkg_get_licenses(pkg); l; l = l->next) {
-			if (!strcmp((char*) l->data, name)) {
-				pkg_name = alpm_pkg_get_name(pkg);
-				pkgs = alpm_list_add(pkgs, (void*) pkg_name);
-				counter++;
-			}
-		}
-	}
-
-	if (counter > 0) {
-		printf("Found %d package%s with license \"%s\":\n", counter, 
-			(counter > 1) ? "s" : "", name);
-
-		for (l = pkgs; l; l = l->next)
-			printf("%s\n", (char*) l->data);
-	}
-	else {
-		printf("No package found with license \"%s\"\n", name);
-	}
-
-	alpm_list_free(pkgs);
+	*db = alpm_get_localdb(*handle);
 }
 
 static void usage(char *str)
@@ -259,11 +168,46 @@ static void usage(char *str)
 	die("usage: %s [-a] [-l license/ list] [-v]\n", str);
 }
 
+static void init_licenses_list(alpm_db_t *db, alpm_list_t **licenses)
+{
+	alpm_list_t *i, *l;
+
+	for (i = alpm_db_get_pkgcache(db); i; i = i->next) {
+		alpm_pkg_t *pkg = i->data;
+
+		l = alpm_pkg_get_licenses(pkg);
+
+		/* iterate over multiple licenses */
+		while(l) {
+			process_license(licenses, (char*) l->data, pkg);
+			licenses_counter++;
+			l = l->next;
+		}
+		
+		pkgs_counter++;
+	}
+
+	/* sort licenses by count */
+	*licenses = sort_list(*licenses);
+}
+
 int main(int argc, char **argv)
 {
 	static alpm_handle_t *handle;
+	static alpm_db_t *db;
+	static alpm_list_t *licenses = NULL;
 
-	if ((argc == 2) && !strcmp("-v", argv[1])) {
+	init_db(&handle, &db);
+	init_licenses_list(db, &licenses);
+
+	print_licenses_list(licenses);
+	printf("Free counter: %.2f%% (%d/%d)\n", (double)free_counter*100/pkgs_counter,
+		free_counter, pkgs_counter);
+
+	free_licenses_list(licenses);
+
+
+	/*if ((argc == 2) && !strcmp("-v", argv[1])) {
 		die("%s © 2013 jeanbroid\n", "pacfree");
 	}
 	else if ((argc == 2) && !strcmp("-a", argv[1])) {
@@ -281,7 +225,7 @@ int main(int argc, char **argv)
 	}
 	else {
 		get_licenses_and_count(&handle, 1);
-	}
+	}*/
 
 	alpm_release(handle);
 
