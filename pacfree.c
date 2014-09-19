@@ -84,7 +84,8 @@ static void print_pkgs_by_license(alpm_list_t *licenses, char* name)
 		return;
 	}
 
-	printf("%d package%s installed with license: \"%s\":\n", license->count, (license->count) > 0 ? "s" : "", name);
+	printf("%d package%s installed with license: \"%s\":\n", license->count,
+			(license->count) > 0 ? "s" : "", name);
 
 	for (p = license->pkgs; p; p = p->next)
 		printf("%s\n", (char *) p->data);
@@ -112,7 +113,8 @@ static void print_licenses_list(alpm_list_t *licenses)
 		license = (license_t *) l->data;
 
 		printf("+%-8s \n  %05.2f%% (%d/%d)\n", license->name,
-			((double)license->count*100)/licenses_counter, license->count, licenses_counter);
+			((double) license->count * 100) / licenses_counter, license->count,
+			licenses_counter);
 
 		/* let's display only the 5 most used license */
 		if (limit_output && (i == 4))
@@ -122,9 +124,11 @@ static void print_licenses_list(alpm_list_t *licenses)
 		i++;
 	}
 
-	if (limit_output)
+	if (limit_output) {
 		printf("%-8s \n  %05.2f%%  (%d/%d)\n", "+other", 
-			((double)(licenses_counter-sum)*100)/licenses_counter, licenses_counter-sum, licenses_counter);
+			((double) (licenses_counter - sum) * 100) / licenses_counter,
+			licenses_counter-sum, licenses_counter);
+	}
 }
 
 static void print_licenses_summary(alpm_list_t *licenses)
@@ -140,9 +144,13 @@ static void print_licenses_summary(alpm_list_t *licenses)
 
 	custom_l = get_license_in_list(licenses, "custom");
 
-	printf("Common open source licenses: %.2f%%\n", (double)free_counter*100/licenses_counter);
-	printf("Custom licenses: %.2f%%\n", (double)(custom_l->count)*100/licenses_counter);
-	printf("Other licenses: %.2f%%\n", (double)(licenses_counter - free_counter - custom_l->count)*100/licenses_counter);
+	printf("Common open source licenses: %.2f%%\n",
+			(double) (free_counter * 100 / licenses_counter));
+	printf("Custom licenses: %.2f%%\n", 
+		(double) (custom_l->count) * 100 / licenses_counter);
+	printf("Other licenses: %.2f%%\n", 
+			(double) (licenses_counter - free_counter - custom_l->count) * 100 
+			/ licenses_counter);
 
 }
 
@@ -228,7 +236,7 @@ static void init_licenses_list(alpm_db_t *db, alpm_list_t **licenses)
 		l = alpm_pkg_get_licenses(pkg);
 
 		/* iterate over multiple licenses */
-		while(l) {
+		while (l) {
 			process_license(licenses, (char*) l->data, pkg);
 			licenses_counter++;
 			l = l->next;

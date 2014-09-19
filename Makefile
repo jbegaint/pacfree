@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wshadow -ansi -pedantic
+CFLAGS = -Wall -Wshadow -ansi -pedantic -O2
 LDFLAGS = -lalpm
 
 SRC = pacfree.c
