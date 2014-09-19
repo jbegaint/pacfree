@@ -1,11 +1,11 @@
 Pacfree
 =======
-* `pacfree` - list and count packages licenses from pacman db (for now).
+* `pacfree` - list and count packages licenses from pacman db.
 
-* (just playing with pacman library (alpm)).
+* just playing with pacman library (alpm)...
 
-Todo
-----
+Todo / Bugs
+-----------
 
 * group licenses by types : open source/ custom/ etc...
 
