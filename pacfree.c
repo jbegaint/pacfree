@@ -92,11 +92,11 @@ static void print_pkgs_by_license(alpm_list_t *licenses, char* name)
 	license = get_license_in_list(licenses, name);
 
 	if (!license) {
-		printf("No packages installed with license: \"%s\"\n", name);
+		printf("No packages installed with license \"%s\"\n", name);
 		return;
 	}
 
-	printf("%d package%s installed with license: \"%s\":\n", license->count,
+	printf("%d package%s installed with license \"%s\":\n", license->count,
 			(license->count) > 1 ? "s" : "", name);
 
 	for (p = license->pkgs; p; p = p->next)
