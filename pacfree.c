@@ -12,8 +12,6 @@
 static int licenses_counter = 0;
 static int pkgs_counter = 0;
 
-static int limit_output = 1;
-
 typedef struct {
 	const char *name;
 	int count;
@@ -116,19 +114,13 @@ static void print_licenses_list(alpm_list_t *licenses)
 			((double) license->count * 100) / licenses_counter, license->count,
 			licenses_counter);
 
-		/* let's display only the 5 most used license */
-		if (limit_output && (i == 4))
-			break;
-
 		sum += license->count;
 		i++;
 	}
 
-	if (limit_output) {
-		printf("%-8s \n  %05.2f%%  (%d/%d)\n", "+other", 
-			((double) (licenses_counter - sum) * 100) / licenses_counter,
+	printf("%-8s \n  %05.2f%%  (%d/%d)\n", "+other", 
+			((double) (licenses_counter	- sum) * 100) / licenses_counter, 
 			licenses_counter-sum, licenses_counter);
-	}
 }
 
 static void print_licenses_summary(alpm_list_t *licenses)
@@ -262,7 +254,6 @@ int main(int argc, char **argv)
 		die("%s © 2013 jeanbroid\n", "pacfree");
 	}
 	else if ((argc == 2) && !strcmp("-a", argv[1])) {
-		limit_output = 0;
 		print_licenses_list(licenses);		
 	}
 	else if ((argc == 3) && !strcmp("-l", argv[1]) 
